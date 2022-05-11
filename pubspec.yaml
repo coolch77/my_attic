@@ -31,19 +31,24 @@ dependencies:
     sdk: flutter
   
   get: ^4.6.1
+
+  # Network, Communication
+  html: ^0.15.0
+  http: ^0.13.4
   receive_sharing_intent: ^1.4.5
   url_launcher: ^6.0.20
 
+  # Data Extraction
+  beautiful_soup_dart: ^0.2.0
+
+  # UI
+  transparent_image: ^2.0.0
+  flutter_vibrate: ^1.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter.
 flutter:
 
   # The following line ensures that the Material Icons font is
