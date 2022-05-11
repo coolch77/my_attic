@@ -9,8 +9,6 @@ import 'package:transparent_image/transparent_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:http/http.dart' as http;
-// import 'package:html/parser.dart' as parser;
-// import 'package:html/dom.dart' as dom;
 
 class Home extends StatefulWidget {
   @override
@@ -31,39 +29,34 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance!.addObserver(this);
     super.initState();
     // For sharing or opening urls/text coming from outside the app while the app is in the memory
+    // 앱이 실행되고 있는 상태에서 링크가 전달 될 때
     _intentDataStreamSubscription = ReceiveSharingIntent.getTextStream().listen((String externalUrl) async {
-      print('[Home] getTextStream() - externalUrl = $externalUrl');
-
       await updateLinkInfo(externalUrl);
     }, onError: (err) {
       print("[Home] getTextStream() - error: $err");
     });
 
     // For sharing or opening urls/text coming from outside the app while the app is closed
+    // 앱이 실행되지 않고 있는 상태에서 링크가 전달 될 때
     ReceiveSharingIntent.getInitialText().then((String? externalUrl) async {
-      print('[Home] getInitialText() - externalUrl = [$externalUrl]');
-
       await updateLinkInfo(externalUrl);
+    }, onError: (err) {
+      print("[Home] getInitialText() - error: $err");
     });
   }
 
   Future<void> updateLinkInfo(String? externalUrl) async {
+    print('[Home] updateLinkInfo() - externalUrl = $externalUrl');
     if (externalUrl == null || externalUrl.isEmpty) {
-      setState(() {
-        _sharedLink = '';
-        _sharedLinkShortCut = '';
-        _sharedTitle = '';
-        _sharedImage = '';
-        _sharedDescription = '';
-      });
+      return;
     } else {
-      var values = externalUrl.split('\n');
-      externalUrl = values.last;
-      print('[Home] updateLinkInfo() - externalUrl = $externalUrl');
+      var url = '';
+      var values = externalUrl.split(RegExp(r'\s'));
+      url = values.last;
+
       setState(() {
-        _sharedLink = externalUrl;
-        _sharedLinkShortCut = externalUrl!.split('/')[2].trim();
-        print('[Home] updateLinkInfo() - externalUrl!.split() = ${externalUrl.split('/')}');
+        _sharedLink = url;
+        _sharedLinkShortCut = url.split('/')[2].trim();
       });
 
       try {
@@ -71,23 +64,51 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           'User-Agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64)AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36'
         };
-        var data = await http.get(Uri.parse(externalUrl), headers: headers);
-        BeautifulSoup soup = BeautifulSoup(data.body);
-        var title = soup.find('', selector: 'meta[property="og:title"]')!['content'];
-        print('[Home] updateLinkInfo() - title = $title');
-        var image = soup.find('', selector: 'meta[property="og:image"]')!['content'];
-        print('[Home] updateLinkInfo() - image = $image');
-        var description = soup.find('', selector: 'meta[property="og:description"]')!['content'];
-        print('[Home] updateLinkInfo() - description = $description');
+        http.Response data = await http.get(Uri.parse(url), headers: headers);
 
-        setState(() {
-          _sharedTitle = title;
-          _sharedImage = image;
-          _sharedDescription = description;
-        });
+        if (data.body.isEmpty) {
+          setState(() {
+            _sharedTitle = externalUrl;
+          });
+        } else {
+          print('[Home] updateLinkInfo() - data.body = ${data.body}');
+          BeautifulSoup soup = BeautifulSoup(data.body);
+
+          print('[Home] updateLinkInfo() - soup = $soup');
+
+          var title = '';
+          Bs4Element? titleElement = soup.find('', selector: 'meta[property="og:title"]');
+          if (titleElement != null) {
+            title = titleElement['content']!;
+            print('[Home] updateLinkInfo() - title = $title');
+          }
+
+          var image = '';
+          Bs4Element? imageElement = soup.find('', selector: 'meta[property="og:image"]');
+          if (imageElement != null) {
+            image = imageElement['content']!;
+            print('[Home] updateLinkInfo() - image = $image');
+          }
+
+          var description = '';
+          Bs4Element? descriptionElement = soup.find('', selector: 'meta[property="og:description"]');
+          if (descriptionElement != null) {
+            description = descriptionElement['content']!;
+            print('[Home] updateLinkInfo() - description = $description');
+          }
+
+          setState(() {
+            _sharedTitle = (title.isEmpty) ? externalUrl : title;
+            _sharedImage = (image.isEmpty) ? '' : image;
+            _sharedDescription = (description.isEmpty) ? '' : description;
+          });
+        }
       } catch (e) {
         print('[Home] updateLinkInfo() - MetadataFetch.extract - error - $e');
-        setState(() => _sharedDescription = 'metadata extract has error');
+        setState(() {
+          _sharedLink = url;
+          _sharedTitle = externalUrl;
+        });
       }
     }
   }
@@ -113,92 +134,97 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         child: Column(
           children: [
             SizedBox(height: Get.height * 0.05),
-            Container(
-              width: Get.width * 0.9,
-              child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 5.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        if (_sharedLink == null) {
-                          return;
-                        }
-                        Vibrate.feedback(FeedbackType.impact);
-                        launchURL(_sharedLink!);
-                      },
-                      child: Container(
-                        width: double.maxFinite,
-                        height: Get.height * 0.2,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(30),
-                            topRight: Radius.circular(30),
-                          ),
-                          child: (_sharedImage == null || _sharedImage!.isEmpty)
-                              ? SizedBox()
-                              : FadeInImage.memoryNetwork(
-                                  placeholder: kTransparentImage,
-                                  image: _sharedImage!,
-                                  fit: BoxFit.cover,
-                                  width: Get.width * 0.9,
-                                ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: Get.height * 0.015),
-                    SizedBox(
-                      height: Get.height * 0.025,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: Get.width * 0.05),
-                        child: Text(
-                          _sharedTitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: Get.height * 0.02,
-                            fontWeight: FontWeight.bold,
+            GestureDetector(
+              onTap: () {
+                print('[Home] onTap() - _sharedLink - $_sharedLink, _sharedImage - $_sharedImage');
+                if (_sharedLink == null || _sharedLink!.isEmpty) {
+                  return;
+                }
+                Vibrate.feedback(FeedbackType.impact);
+                launchURL(_sharedLink!);
+              },
+              child: Container(
+                width: Get.width * 0.9,
+                child: Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 5.0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Visibility(
+                        visible: _sharedImage != null && _sharedImage!.isNotEmpty,
+                        child: Container(
+                          width: double.maxFinite,
+                          height: Get.height * 0.2,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(30),
+                              topRight: Radius.circular(30),
+                            ),
+                            child: (_sharedImage == null || _sharedImage!.isEmpty)
+                                ? SizedBox()
+                                : FadeInImage.memoryNetwork(
+                                    placeholder: kTransparentImage,
+                                    image: _sharedImage!,
+                                    fit: BoxFit.cover,
+                                    width: Get.width * 0.9,
+                                  ),
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: Get.height * 0.01),
-                    SizedBox(
-                      height: Get.height * 0.025,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: Get.width * 0.05),
-                        child: Text(
-                          _sharedDescription!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: Get.height * 0.016,
+                      SizedBox(height: Get.height * 0.015),
+                      SizedBox(
+                        height: Get.height * 0.025,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: Get.width * 0.05),
+                          child: Text(
+                            _sharedTitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: Get.height * 0.02,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: Get.height * 0.01),
-                    SizedBox(
-                      height: Get.height * 0.025,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: Get.width * 0.05),
-                        child: Text(
-                          _sharedLinkShortCut!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: Get.height * 0.014,
-                            color: Colors.grey,
+                      SizedBox(height: Get.height * 0.01),
+                      SizedBox(
+                        height: Get.height * 0.025,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: Get.width * 0.05),
+                          child: Text(
+                            _sharedDescription!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: Get.height * 0.016,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: Get.height * 0.01),
-                  ],
+                      SizedBox(height: Get.height * 0.01),
+                      SizedBox(
+                        height: Get.height * 0.025,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: Get.width * 0.05),
+                          child: Text(
+                            _sharedLinkShortCut!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: Get.height * 0.014,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: Get.height * 0.01),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -224,13 +250,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         print("inactive");
         break;
       case AppLifecycleState.paused:
-        setState(() {
-          _sharedLink = '';
-          _sharedLinkShortCut = '';
-          _sharedTitle = '';
-          _sharedImage = '';
-          _sharedDescription = '';
-        });
         // 앱이 현재 사용자에게 보이지 않고, 사용자의 입력을 받지 않으며, 백그라운드에서 동작 중입니다.
         // 안드로이드의 onPause()와 동일합니다.
         // 응용 프로그램이 이 상태에 있으면 엔진은 Window.onBeginFrame 및 Window.onDrawFrame 콜백을 호출하지 않습니다.
