@@ -36,7 +36,7 @@ dependencies:
   html: ^0.15.0
   http: ^0.13.4
   receive_sharing_intent: ^1.4.5
-  url_launcher: ^6.0.20
+  url_launcher: ^6.1.2
 
   # Data Extraction
   beautiful_soup_dart: ^0.2.0

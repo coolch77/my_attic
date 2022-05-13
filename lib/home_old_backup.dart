@@ -7,7 +7,6 @@ import 'package:flutter_vibrate/flutter_vibrate.dart';
 import 'package:get/get.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:transparent_image/transparent_image.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -158,7 +157,7 @@ class _HomeBackupState extends State<HomeBackup> with WidgetsBindingObserver {
   }
 
   void launchURL(String url) async {
-    if (!await launch(url)) throw 'Could not launch $url';
+    // if (!await launch(url)) throw 'Could not launch $url';
   }
 
   @override

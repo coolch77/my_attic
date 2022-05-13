@@ -20,9 +20,11 @@ class StoreDataHomeController extends GetxController {
   void onInit() {
     ever(data, (_) async {
       print('[StoreDataHomeController] data = ${data.value}');
-      isLoading.value = true;
       _clearData();
-      _extractData(data.value).then((value) => isLoading.value = false);
+      if (data.value.isNotEmpty) {
+        isLoading.value = true;
+        _extractData(data.value).then((value) => isLoading.value = false);
+      }
     });
     super.onInit();
   }
@@ -39,8 +41,13 @@ class StoreDataHomeController extends GetxController {
     }
 
     var url = '';
-    var values = data.split(RegExp(r'\s'));
-    url = values.last;
+
+    var searchIndex = data.lastIndexOf(RegExp(r'(?:(https?):\/\/)'));
+    print('[StoreDataHomeController] searchIndex = $searchIndex');
+    if (searchIndex >= 0) {
+      print('[StoreDataHomeController] searchIndex = ${data.substring(searchIndex)}');
+      url = data.substring(searchIndex);
+    }
 
     link.value = url;
     if (url.split('/').length > 2) {
@@ -54,7 +61,12 @@ class StoreDataHomeController extends GetxController {
             ' AppleWebKit/537.36 (KHTML, like Gecko)' +
             ' Chrome/95.0.4638.69 Safari/537.36',
       };
-      http.Response response = await http.get(Uri.parse(url), headers: header);
+      http.Response response = await http.get(Uri.parse(url), headers: header).timeout(
+        Duration(seconds: 7),
+        onTimeout: () {
+          return http.Response('Error', 408);
+        },
+      );
 
       if (response.body.isEmpty) {
         title.value = data;
@@ -86,13 +98,13 @@ class StoreDataHomeController extends GetxController {
     }
 
     print('[StoreDataHomeController] _extractData() ----------------');
-    print('[StoreDataHomeController] data = $data');
-    print('[StoreDataHomeController] link = ${link.value}');
-    print('[StoreDataHomeController] linkShortCut = ${linkShortCut.value}');
-    print('[StoreDataHomeController] title = ${title.value}');
-    print('[StoreDataHomeController] image = ${image.value}');
-    print('[StoreDataHomeController] description = ${description.value}');
-    print('[StoreDataHomeController] _extractData() ----------------');
+    print('data = $data');
+    print('link = ${link.value}');
+    print('linkShortCut = ${linkShortCut.value}');
+    print('title = ${title.value}');
+    print('image = ${image.value}');
+    print('description = ${description.value}');
+    print('---------------------------------------------------------');
   }
 
   _clearData() {
